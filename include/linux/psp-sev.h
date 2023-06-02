@@ -796,7 +796,7 @@ struct sev_data_snp_commit {
 	u32 length;
 } __packed;
 
-#ifdef CONFIG_CRYPTO_DEV_SP_PSP
+#if defined(CONFIG_CRYPTO_DEV_SP_PSP) || defined(CONFIG_CRYPTO_DEV_SP_PSP_MODULE)
 
 /**
  * struct sev_platform_init_args
