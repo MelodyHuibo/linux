@@ -184,7 +184,8 @@ static int psp_check_tee_support(struct psp_device *psp)
 		return -ENODEV;
 	}
 
-	return 0;
+	pr_err("___K___ %s %u: pretend no TEE\n", __func__, __LINE__);
+	return -ENODEV;
 }
 
 static int psp_init(struct psp_device *psp)
