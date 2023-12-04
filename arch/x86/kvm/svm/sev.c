@@ -2053,6 +2053,8 @@ static int snp_launch_start(struct kvm *kvm, struct kvm_sev_cmd *argp)
 	if (rc)
 		goto e_free_context;
 
+	kvm->stat.sev_snp_gctx = __psp_pa(sev->snp_context);
+
 	return 0;
 
 e_free_context:
