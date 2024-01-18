@@ -512,7 +512,7 @@ void snp_leak_pages(u64 pfn, unsigned int npages)
 {
 	struct page *page = pfn_to_page(pfn);
 
-	pr_debug("%s: leaking PFN range 0x%llx-0x%llx\n", __func__, pfn, pfn + npages);
+	pr_err("%s: leaking PFN range 0x%llx-0x%llx\n", __func__, pfn, pfn + npages);
 
 	spin_lock(&snp_leaked_pages_list_lock);
 	while (npages--) {
