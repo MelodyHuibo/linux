@@ -3870,8 +3870,6 @@ int amd_iommu_snp_disable(void)
 	if (!amd_iommu_snp_en)
 		return 0;
 
-	amd_iommu_snp_debug = true;
-
 	for_each_iommu(iommu) {
 		pr_warn("%s: IOMMU cleaning up evt_buf %px size %d\n",
 			__func__, iommu->evt_buf, EVT_BUFFER_SIZE);
@@ -3893,6 +3891,8 @@ int amd_iommu_snp_disable(void)
 	}
 
 	pr_warn("%s: IOMMU cleaning up completed\n", __func__);
+
+	amd_iommu_snp_debug = true;
 
 	return 0;
 }

@@ -407,7 +407,7 @@ static int invalidate_direct_map(u64 pfn, int npages)
 	}
 
 	if (ret) {
-		pr_warn("Failed to invalidate direct map for pfn 0x%llx, ret: %d\n",
+		pr_err("Failed to invalidate direct map for pfn 0x%llx, ret: %d\n",
 			pfn + i, ret);
 		restore_direct_map(pfn, i);
 	}
@@ -433,14 +433,17 @@ static int rmpupdate(u64 pfn, struct rmp_state *state)
 	unsigned long paddr = pfn << PAGE_SHIFT;
 	int ret, level, npages;
 	int retries = 2000000;
+//	static int n;
 
 	if (!cpu_feature_enabled(X86_FEATURE_SEV_SNP))
 		return -ENODEV;
 
-	if (amd_iommu_snp_debug) {
-		pr_warn("dumping PFN 0x%llx RMP entry state prior to RMPUPDATE...\n", pfn);
-		dump_rmpentry(pfn);
-	}
+//	if (amd_iommu_snp_debug) {
+//		pr_warn("dumping PFN 0x%llx RMP entry state prior to RMPUPDATE...\n", pfn);
+//		dump_rmpentry(pfn);
+//	}
+//	if (amd_iommu_snp_debug && (n++ < 4))
+//		dump_stack();
 
 	level = RMP_TO_PG_LEVEL(state->pagesize);
 	npages = page_level_size(level) / PAGE_SIZE;
