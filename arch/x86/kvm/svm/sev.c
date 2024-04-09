@@ -3115,6 +3115,7 @@ static int sev_es_validate_vmgexit(struct vcpu_svm *svm)
 	case SVM_VMGEXIT_TERM_REQUEST:
 	case SVM_VMGEXIT_GUEST_REQUEST:
 	case SVM_VMGEXIT_EXT_GUEST_REQUEST:
+	case SVM_VMGEXIT_HVDB_PAGE:
 		break;
 	default:
 		reason = GHCB_ERR_INVALID_EVENT;
@@ -3141,6 +3142,57 @@ vmgexit_err:
 
 	/* Resume the guest to "return" the error code. */
 	return 1;
+}
+
+static int sev_snp_hv_doorbell_page(struct vcpu_svm *svm)
+{
+       struct kvm_vcpu *vcpu = &svm->vcpu;
+       struct kvm_host_map hvdb_map;
+       gpa_t hvdb_gpa;
+       u64 request;
+
+       request = svm->vmcb->control.exit_info_1;
+       hvdb_gpa = svm->vmcb->control.exit_info_2;
+
+       switch (request) {
+       case SVM_VMGEXIT_HVDB_GET_PREFERRED:
+               svm_set_ghcb_sw_exit_info_2(vcpu, 0xffffffffffffffff);
+               break;
+       case SVM_VMGEXIT_HVDB_SET:
+               svm->hvdb_gpa = INVALID_PAGE;
+
+               if (!page_address_valid(vcpu, hvdb_gpa)) {
+                       vcpu_unimpl(vcpu, "vmgexit: invalid #HV doorbell page address [%#llx] from guest\n",
+                                   hvdb_gpa);
+                       return -EINVAL;
+               }
+
+               /* Map and unmap the GPA just to be sure the GPA is valid */
+               if (kvm_vcpu_map(vcpu, gpa_to_gfn(hvdb_gpa), &hvdb_map)) {
+                       /* Unable to map #HV doorbell page from guest */
+                       vcpu_unimpl(vcpu, "vmgexit: error mapping #HV doorbell page [%#llx] from guest\n",
+                                   hvdb_gpa);
+                       return -EINVAL;
+               }
+               kvm_vcpu_unmap(vcpu, &hvdb_map, true);
+
+               svm->hvdb_gpa = hvdb_gpa;
+               fallthrough;
+       case SVM_VMGEXIT_HVDB_QUERY:
+               svm_set_ghcb_sw_exit_info_2(vcpu, svm->hvdb_gpa);
+               break;
+       case SVM_VMGEXIT_HVDB_CLEAR:
+               svm->hvdb_gpa = INVALID_PAGE;
+               break;
+       default:
+               svm->hvdb_gpa = INVALID_PAGE;
+
+               vcpu_unimpl(vcpu, "vmgexit: invalid #HV doorbell page request [%#llx] from guest\n",
+                           request);
+               return -EINVAL;
+       }
+
+       return 0;
 }
 
 void sev_es_unmap_ghcb(struct vcpu_svm *svm)
@@ -3960,6 +4012,17 @@ int sev_handle_vmgexit(struct kvm_vcpu *vcpu)
 	case SVM_VMGEXIT_EXT_GUEST_REQUEST:
 		ret = snp_begin_ext_guest_req(vcpu);
 		break;
+	case SVM_VMGEXIT_HVDB_PAGE:
+               ret = sev_snp_hv_doorbell_page(svm);
+               if (ret) {
+                       svm_set_ghcb_sw_exit_info_1(vcpu, 1);
+                       svm_set_ghcb_sw_exit_info_2(vcpu,
+                                                   X86_TRAP_GP |
+                                                   SVM_EVTINJ_TYPE_EXEPT |
+                                                   SVM_EVTINJ_VALID);
+               }
+	       ret = 1;
+	       break;
 	case SVM_VMGEXIT_UNSUPPORTED_EVENT:
 		vcpu_unimpl(vcpu,
 			    "vmgexit: unsupported event - exit_info_1=%#llx, exit_info_2=%#llx\n",
@@ -4128,6 +4191,7 @@ void sev_es_vcpu_reset(struct vcpu_svm *svm)
 					    sev_enc_bit));
 
 	mutex_init(&svm->sev_es.snp_vmsa_mutex);
+	svm->hvdb_gpa = INVALID_PAGE;
 }
 
 void sev_es_prepare_switch_to_guest(struct sev_es_save_area *hostsa)
