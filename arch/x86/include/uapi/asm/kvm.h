@@ -792,6 +792,9 @@ struct kvm_sev_receive_update_data {
 	__u32 trans_len;
 };
 
+/* enable the restricted injection */
+#define KVM_SEV_SNP_RESTRICTED_INJET   (1 << 0)
+
 /* TODO: use a common struct via KVM_SEV_INIT2 */
 struct kvm_snp_init {
 	__u64 flags;
