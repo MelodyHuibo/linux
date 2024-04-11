@@ -10326,12 +10326,14 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 	 */
 	if (vcpu->arch.exception.injected)
 		kvm_inject_exception(vcpu);
+        	trace_kvm_inj_can_inject(vcpu, false, 0);
 	else if (kvm_is_exception_pending(vcpu))
 		; /* see above */
 	else if (vcpu->arch.nmi_injected)
 		static_call(kvm_x86_inject_nmi)(vcpu);
 	else if (vcpu->arch.interrupt.injected)
 		static_call(kvm_x86_inject_irq)(vcpu, true);
+	        trace_kvm_inj_can_inject(vcpu, false, 2);
 
 	/*
 	 * Exceptions that morph to VM-Exits are handled above, and pending
@@ -10369,6 +10371,9 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 	can_inject = !kvm_event_needs_reinjection(vcpu);
 
 	if (vcpu->arch.exception.pending) {
+		trace_kvm_inj_exception(vcpu, vcpu->arch.exception.nr,
+                                        vcpu->arch.exception.has_error_code,
+                                        vcpu->arch.exception.error_code);
 		/*
 		 * Fault-class exceptions, except #DBs, set RF=1 in the RFLAGS
 		 * value pushed on the stack.  Trap-like exception and all #DBs
@@ -10397,6 +10402,7 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 		vcpu->arch.exception.injected = true;
 
 		can_inject = false;
+		trace_kvm_inj_can_inject(vcpu, false, 3);
 	}
 
 	/* Don't inject interrupts if the user asked to avoid doing so */
@@ -10424,6 +10430,7 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 			++vcpu->arch.smi_count;
 			enter_smm(vcpu);
 			can_inject = false;
+			trace_kvm_inj_can_inject(vcpu, false, 4);
 		} else
 			static_call(kvm_x86_enable_smi_window)(vcpu);
 	}
@@ -10438,6 +10445,7 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 			vcpu->arch.nmi_injected = true;
 			static_call(kvm_x86_inject_nmi)(vcpu);
 			can_inject = false;
+			trace_kvm_inj_can_inject(vcpu, false, 5);
 			WARN_ON(static_call(kvm_x86_nmi_allowed)(vcpu, true) < 0);
 		}
 		if (vcpu->arch.nmi_pending)
@@ -10484,6 +10492,7 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 
 out:
 	if (r == -EBUSY) {
+		trace_kvm_inj_not_allowed(vcpu, vcpu->arch.smi_pending, vcpu->arch.nmi_pending, kvm_cpu_has_injectable_intr(vcpu));
 		*req_immediate_exit = true;
 		r = 0;
 	}
