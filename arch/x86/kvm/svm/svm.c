@@ -1671,6 +1671,7 @@ static void svm_set_vintr(struct vcpu_svm *svm)
 	control->int_ctl |= V_IRQ_MASK |
 		((/*control->int_vector >> 4*/ 0xf) << V_INTR_PRIO_SHIFT);
 	vmcb_mark_dirty(svm->vmcb, VMCB_INTR);
+	trace_kvm_inj_vintr_set(&svm->vcpu, svm->vmcb->control.int_ctl);
 }
 
 static void svm_clear_vintr(struct vcpu_svm *svm)
@@ -1692,6 +1693,7 @@ static void svm_clear_vintr(struct vcpu_svm *svm)
 	}
 
 	vmcb_mark_dirty(svm->vmcb, VMCB_INTR);
+	trace_kvm_inj_vintr_clear(&svm->vcpu, svm->vmcb->control.int_ctl);
 }
 
 static struct vmcb_seg *svm_seg(struct kvm_vcpu *vcpu, int seg)
@@ -3653,7 +3655,7 @@ static void svm_inject_irq(struct kvm_vcpu *vcpu, bool reinjected)
 		type = SVM_EVTINJ_TYPE_INTR;
 	}
 
-	trace_kvm_inj_virq(vcpu->arch.interrupt.nr,
+	trace_kvm_inj_virq(vcpu, vcpu->arch.interrupt.nr,
 			   vcpu->arch.interrupt.soft, reinjected);
 	++vcpu->stat.irq_injections;
 
@@ -3833,8 +3835,12 @@ static int svm_interrupt_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
 
-	if (svm->nested.nested_run_pending)
+	int ret;
+
+	if (svm->nested.nested_run_pending){
+		trace_kvm_inj_int_allowed(vcpu, for_injection, -EBUSY);
 		return -EBUSY;
+	}
 
 	if (svm_interrupt_blocked(vcpu))
 		return 0;
@@ -3843,10 +3849,16 @@ static int svm_interrupt_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 	 * An IRQ must not be injected into L2 if it's supposed to VM-Exit,
 	 * e.g. if the IRQ arrived asynchronously after checking nested events.
 	 */
-	if (for_injection && is_guest_mode(vcpu) && nested_exit_on_intr(svm))
+	if (for_injection && is_guest_mode(vcpu) && nested_exit_on_intr(svm)){
+		trace_kvm_inj_int_allowed(vcpu, for_injection, -EBUSY);
 		return -EBUSY;
+	}
 
-	return 1;
+	ret = !svm_interrupt_blocked(vcpu);
+        trace_kvm_inj_int_allowed(vcpu, for_injection, ret);
+
+//	return 1;
+	return ret;
 }
 
 static void svm_enable_irq_window(struct kvm_vcpu *vcpu)
@@ -4119,6 +4131,8 @@ static void svm_cancel_injection(struct kvm_vcpu *vcpu)
 	struct vmcb_control_area *control = &svm->vmcb->control;
 
 	sev_snp_cancel_injection(vcpu);
+	if (control->event_inj)
+               trace_kvm_inj_cancel(vcpu, control->event_inj, control->event_inj_err);
 	control->exit_int_info = control->event_inj;
 	control->exit_int_info_err = control->event_inj_err;
 	control->event_inj = 0;
@@ -4160,8 +4174,20 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu)
 	struct vcpu_svm *svm = to_svm(vcpu);
 	bool spec_ctrl_intercepted = msr_write_intercepted(vcpu, MSR_IA32_SPEC_CTRL);
 
+	bool trace_event_inj = false;
+        bool trace_vintr_inj = false;
+
 	trace_kvm_entry(vcpu);
 
+	if (svm->vmcb->control.event_inj) {
+                trace_kvm_inj_event_inj_vcpu_run(vcpu, svm->vmcb->control.event_inj);
+                trace_event_inj = true;
+        }
+ 
+        if (svm->vmcb->control.int_ctl & V_IRQ_MASK) {
+                trace_kvm_inj_vintr_inj_vcpu_run(vcpu, svm->vmcb->control.int_ctl);
+                trace_vintr_inj = true;
+        }
 	svm->vmcb->save.rax = vcpu->arch.regs[VCPU_REGS_RAX];
 	svm->vmcb->save.rsp = vcpu->arch.regs[VCPU_REGS_RSP];
 	svm->vmcb->save.rip = vcpu->arch.regs[VCPU_REGS_RIP];
@@ -4237,6 +4263,11 @@ static __no_kcsan fastpath_t svm_vcpu_run(struct kvm_vcpu *vcpu)
 	stgi();
 
 	/* Any pending NMI will happen here */
+        if (svm->vmcb->control.exit_int_info || trace_event_inj)
+                trace_kvm_inj_event_inj_vcpu_exit(vcpu, svm->vmcb->control.exit_code, svm->vmcb->control.event_inj, svm->vmcb->control.exit_int_info);
+
+        if ((trace_vintr_inj && !(svm->vmcb->control.int_ctl & V_IRQ_MASK)) || svm->vmcb->control.exit_code == SVM_EXIT_VINTR)
+                trace_kvm_inj_vintr_inj_vcpu_exit(vcpu, svm->vmcb->control.exit_code, svm->vmcb->control.int_ctl, svm->vmcb->control.exit_int_info, svm->vmcb->save.rip, svm->vmcb->control.int_state);
 
 	if (unlikely(svm->vmcb->control.exit_code == SVM_EXIT_NMI))
 		kvm_after_interrupt(vcpu);

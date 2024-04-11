@@ -2145,8 +2145,22 @@ EXPORT_SYMBOL_GPL(kvm_emulate_monitor);
 static inline bool kvm_vcpu_exit_request(struct kvm_vcpu *vcpu)
 {
 	xfer_to_guest_mode_prepare();
+#if 0
 	return vcpu->mode == EXITING_GUEST_MODE || kvm_request_pending(vcpu) ||
 		xfer_to_guest_mode_work_pending();
+#else
+       do {
+               bool ret;
+
+               ret = vcpu->mode == EXITING_GUEST_MODE || kvm_request_pending(vcpu) ||
+                       xfer_to_guest_mode_work_pending();
+
+               if (ret)
+                       trace_kvm_inj_request_pending(vcpu, READ_ONCE(vcpu->requests));
+
+               return ret;
+       } while (0);
+#endif
 }
 
 /*
@@ -10908,6 +10922,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 
 	r = kvm_mmu_reload(vcpu);
 	if (unlikely(r)) {
+		trace_kvm_inj_prepare_cancel(vcpu, 0);
 		goto cancel_injection;
 	}
 
@@ -10958,6 +10973,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 		preempt_enable();
 		kvm_vcpu_srcu_read_lock(vcpu);
 		r = 1;
+		trace_kvm_inj_prepare_cancel(vcpu, 1);
 		goto cancel_injection;
 	}
 
@@ -11200,9 +11216,10 @@ static int vcpu_run(struct kvm_vcpu *vcpu)
 		if (kvm_vcpu_running(vcpu)) {
 			r = vcpu_enter_guest(vcpu);
 		} else {
+			trace_kvm_inj_prepare_cancel(vcpu, 1);
 			r = vcpu_block(vcpu);
 		}
-
+                vcpu->arch.run_id++;
 		if (r <= 0)
 			break;
 
@@ -13921,6 +13938,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_entry);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_exit);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_fast_mmio);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_virq);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_cancel);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_page_fault);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_msr);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_cr);
@@ -13946,6 +13964,17 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_enter);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_exit);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_msr_protocol_enter);
 EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_vmgexit_msr_protocol_exit);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_int_allowed);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_snp_int_blocked);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_snp_queue_excp);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_snp_inject_hv_pre);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_snp_inject_hv_post);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_event_inj_vcpu_run);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_event_inj_vcpu_exit);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_vintr_inj_vcpu_run);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_vintr_inj_vcpu_exit);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_vintr_set);
+EXPORT_TRACEPOINT_SYMBOL_GPL(kvm_inj_vintr_clear);
 
 static int __init kvm_x86_init(void)
 {

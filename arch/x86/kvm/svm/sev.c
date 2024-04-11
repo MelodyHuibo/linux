@@ -4596,6 +4596,7 @@ static void inject_hv(struct vcpu_svm *svm, struct hvdb *hvdb)
        svm->vmcb->control.event_inj_err = 0;
 
        hvdb->events.no_further_signal = 1;
+       trace_kvm_inj_snp_inject_hv_post(&svm->vcpu, svm->vmcb->control.event_inj, hvdb->events.pending_events, hvdb->events.no_eoi_required);
 }
 
 static void unmap_hvdb(struct kvm_vcpu *vcpu, struct kvm_host_map *map)
@@ -4636,6 +4637,7 @@ bool sev_snp_queue_exception(struct kvm_vcpu *vcpu)
        if (!sev_snp_is_rinj_active(vcpu))
                return false;
 
+       trace_kvm_inj_snp_queue_excp(vcpu, vcpu->arch.exception.nr);
        if (WARN_ONCE(vcpu->arch.exception.nr != HV_VECTOR,
                      "restricted injection enabled, exception %u injection not supported\n",
                      vcpu->arch.exception.nr))
@@ -4706,6 +4708,8 @@ void sev_snp_cancel_injection(struct kvm_vcpu *vcpu)
 
        if (!svm->vmcb->control.event_inj)
                return;
+       
+       trace_kvm_inj_cancel(vcpu, svm->vmcb->control.event_inj, svm->vmcb->control.event_inj_err);
 
        if ((svm->vmcb->control.event_inj & SVM_EVTINJ_VEC_MASK) != HV_VECTOR)
                return;
@@ -4771,12 +4775,16 @@ bool sev_snp_interrupt_blocked(struct kvm_vcpu *vcpu)
 
        /* Indicate interrupts are blocked if doorbell page can't be mapped */
        hvdb = map_hvdb(vcpu, &hvdb_map);
-       if (!hvdb)
+       if (!hvdb){
+	       trace_kvm_inj_snp_int_blocked(vcpu, true, 0);
                return true;
+       }
 
        /* Indicate interrupts blocked based on guest acknowledgement */
        blocked = hvdb->events.vector != 0;
-
+       
+       trace_kvm_inj_snp_int_blocked(vcpu, blocked, hvdb->events.vector);
+       
        unmap_hvdb(vcpu, &hvdb_map);
 
        return blocked;
