@@ -313,6 +313,7 @@ struct vcpu_svm {
 	/* Transaction ID associated with SNP config updates */
 	u64 snp_transaction_id;
 	gpa_t hvdb_gpa;
+	bool snp_hv_doorbell_config_done;
 };
 
 struct svm_cpu_data {
