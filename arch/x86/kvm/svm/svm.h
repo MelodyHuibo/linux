@@ -299,6 +299,8 @@ struct vcpu_svm {
 		DECLARE_BITMAP(write, MAX_DIRECT_ACCESS_MSRS);
 	} shadow_msr_intercept;
 
+	/* Debug support */
+        unsigned long run_count;
 	struct vcpu_sev_es_state sev_es;
 
 	bool guest_state_loaded;
@@ -590,7 +592,7 @@ void set_msr_interception(struct kvm_vcpu *vcpu, u32 *msrpm, u32 msr,
 void svm_set_x2apic_msr_interception(struct vcpu_svm *svm, bool disable);
 void svm_complete_interrupt_delivery(struct kvm_vcpu *vcpu, int delivery_mode,
 				     int trig_mode, int vec);
-
+void dump_vmcb(struct kvm_vcpu *vcpu);
 /* nested.c */
 
 #define NESTED_EXIT_HOST	0	/* Exit handled on host level */
