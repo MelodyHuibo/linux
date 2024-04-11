@@ -10238,7 +10238,7 @@ static void kvm_inject_exception(struct kvm_vcpu *vcpu)
 	 */
 	vcpu->arch.exception.has_error_code &= is_protmode(vcpu);
 
-	trace_kvm_inj_exception(vcpu->arch.exception.vector,
+	trace_kvm_inj_exception(vcpu, vcpu->arch.exception.vector,
 				vcpu->arch.exception.has_error_code,
 				vcpu->arch.exception.error_code,
 				vcpu->arch.exception.injected);
@@ -10324,16 +10324,18 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 	 * *previous* instruction and must be serviced prior to recognizing any
 	 * new events in order to fully complete the previous instruction.
 	 */
-	if (vcpu->arch.exception.injected)
+	if (vcpu->arch.exception.injected){
 		kvm_inject_exception(vcpu);
         	trace_kvm_inj_can_inject(vcpu, false, 0);
+	}
 	else if (kvm_is_exception_pending(vcpu))
 		; /* see above */
 	else if (vcpu->arch.nmi_injected)
 		static_call(kvm_x86_inject_nmi)(vcpu);
-	else if (vcpu->arch.interrupt.injected)
+	else if (vcpu->arch.interrupt.injected){
 		static_call(kvm_x86_inject_irq)(vcpu, true);
 	        trace_kvm_inj_can_inject(vcpu, false, 2);
+	}
 
 	/*
 	 * Exceptions that morph to VM-Exits are handled above, and pending
@@ -10371,9 +10373,10 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 	can_inject = !kvm_event_needs_reinjection(vcpu);
 
 	if (vcpu->arch.exception.pending) {
-		trace_kvm_inj_exception(vcpu, vcpu->arch.exception.nr,
+		trace_kvm_inj_exception(vcpu, vcpu->arch.exception.vector,
                                         vcpu->arch.exception.has_error_code,
-                                        vcpu->arch.exception.error_code);
+                                        vcpu->arch.exception.error_code,
+					vcpu->arch.exception.injected);
 		/*
 		 * Fault-class exceptions, except #DBs, set RF=1 in the RFLAGS
 		 * value pushed on the stack.  Trap-like exception and all #DBs

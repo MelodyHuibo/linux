@@ -14,6 +14,14 @@
 
 #include <uapi/linux/psp-sev.h>
 
+#ifdef CONFIG_X86
+#include <linux/mem_encrypt.h>
+
+#define __psp_pa(x)     __sme_pa(x)
+#else
+#define __psp_pa(x)     __pa(x)
+#endif
+
 #define SEV_FW_BLOB_MAX_SIZE	0x4000	/* 16KB */
 
 /**
@@ -715,6 +723,7 @@ struct sev_data_snp_dbg {
 	u64 gctx_paddr;				/* In */
 	u64 src_addr;				/* In */
 	u64 dst_addr;				/* In */
+        u32 len;                                /* In */
 } __packed;
 
 /**
@@ -954,6 +963,35 @@ int sev_guest_decommission(struct sev_data_decommission *data, int *error);
  */
 int sev_do_cmd(int cmd, void *data, int *psp_ret);
 
+/**
+ * snp_guest_page_reclaim - perform SNP_PAGE_RECLAIM command
+ *
+ * @decommission: sev_snp_page_reclaim structure to be processed
+ * @sev_ret: sev command return code
+ *
+ * Returns:
+ * 0 if the sev successfully processed the command
+ * -%ENODEV    if the sev device is not available
+ * -%ENOTSUPP  if the sev does not support SEV
+ * -%ETIMEDOUT if the sev command timed out
+ * -%EIO       if the sev returned a non-zero return code
+ */
+int snp_guest_page_reclaim(struct sev_data_snp_page_reclaim *data, int *error);
+
+/**
+ * snp_guest_dbg_decrypt - perform SEV SNP_DBG_DECRYPT command
+ *
+ * @sev_ret: sev command return code
+ *
+ * Returns:
+ * 0 if the sev successfully processed the command
+ * -%ENODEV    if the sev device is not available
+ * -%ENOTSUPP  if the sev does not support SEV
+ * -%ETIMEDOUT if the sev command timed out
+ * -%EIO       if the sev returned a non-zero return code
+ */
+int snp_guest_dbg_decrypt(struct sev_data_snp_dbg *data, int *error);
+
 void *psp_copy_user_blob(u64 uaddr, u32 len);
 void *snp_alloc_firmware_page(gfp_t mask);
 void snp_free_firmware_page(void *addr);
@@ -987,6 +1025,16 @@ static inline void *psp_copy_user_blob(u64 __user uaddr, u32 len) { return ERR_P
 static inline void *snp_alloc_firmware_page(gfp_t mask)
 {
 	return NULL;
+}
+
+static inline int snp_guest_page_reclaim(struct sev_data_snp_page_reclaim *data, int *error)
+{
+	return -ENODEV;
+}
+
+static inline int snp_guest_dbg_decrypt(struct sev_data_snp_dbg *data, int *error)
+{
+	return -ENODEV;
 }
 
 static inline void snp_free_firmware_page(void *addr) { }

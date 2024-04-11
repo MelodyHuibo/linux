@@ -41,6 +41,7 @@
 #include <asm/traps.h>
 #include <asm/reboot.h>
 #include <asm/fpu/api.h>
+#include <asm/sev.h>
 
 #include <trace/events/ipi.h>
 
@@ -3513,7 +3514,7 @@ void dump_vmcb(struct kvm_vcpu *vcpu)
                         kfree(dbg);
                 }
         } else if (sev_es_guest(vcpu->kvm)) {
-                save = (struct vmcb_save_area *)svm->vmsa;
+                save = (struct vmcb_save_area *)svm->sev_es.vmsa;
                 save01 = save;
         } 
 	pr_err("VMCB State Save Area:\n");

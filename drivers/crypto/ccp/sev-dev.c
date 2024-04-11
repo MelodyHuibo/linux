@@ -2182,6 +2182,18 @@ int sev_guest_df_flush(int *error)
 }
 EXPORT_SYMBOL_GPL(sev_guest_df_flush);
 
+int snp_guest_page_reclaim(struct sev_data_snp_page_reclaim *data, int *error)
+{
+        return sev_do_cmd(SEV_CMD_SNP_PAGE_RECLAIM, data, error);
+}
+EXPORT_SYMBOL_GPL(snp_guest_page_reclaim);
+
+int snp_guest_dbg_decrypt(struct sev_data_snp_dbg *data, int *error)
+{
+        return sev_do_cmd(SEV_CMD_SNP_DBG_DECRYPT, data, error);
+}
+EXPORT_SYMBOL_GPL(snp_guest_dbg_decrypt);
+
 int sev_guest_dbg_decrypt(struct sev_data_dbg *data, int *error)
 {
        return sev_do_cmd(SEV_CMD_DBG_DECRYPT, data, error);
