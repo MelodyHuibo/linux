@@ -2652,7 +2652,7 @@ void sev_vm_destroy(struct kvm *kvm)
 	struct list_head *pos, *q;
 
 
-        if (dump_all_vmcbs) {
+/*        if (dump_all_vmcbs) {
                 unsigned int i;
 
                 for (i = 0; i < kvm->created_vcpus; i++) {
@@ -2662,6 +2662,7 @@ void sev_vm_destroy(struct kvm *kvm)
                         dump_vmcb(vcpu);
                 }
         }
+	*/
 
 	if (!sev_guest(kvm))
 		return;

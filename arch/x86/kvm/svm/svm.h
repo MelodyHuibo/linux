@@ -305,6 +305,13 @@ struct vcpu_svm {
 
 	bool guest_state_loaded;
 
+	/*
+	 * SEV-ES support to hold the sw_exit_info return values to be
+	 * sync'ed to the GHCB when mapped.
+	 */
+	u64 ghcb_sw_exit_info_1;
+	u64 ghcb_sw_exit_info_2;
+
 	bool x2avic_msrs_intercepted;
 
 	/* Guest GIF value, used when vGIF is not enabled */
