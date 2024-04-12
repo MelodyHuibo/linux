@@ -2655,7 +2655,7 @@ void sev_vm_destroy(struct kvm *kvm)
         if (dump_all_vmcbs) {
                 unsigned int i;
 
-                for (i = 0; i < kvm->created_vcpus; i) {
+                for (i = 0; i < kvm->created_vcpus; i++) {
                         struct kvm_vcpu *vcpu = kvm->vcpus[i];
  
                         pr_err("*** DEBUG: %s:%u:%s - vcpu%u before destroy\n", __FILE__, __LINE__, __func__, vcpu->vcpu_id);
@@ -4668,10 +4668,10 @@ bool sev_snp_queue_exception(struct kvm_vcpu *vcpu)
        if (!sev_snp_is_rinj_active(vcpu))
                return false;
 
-       trace_kvm_inj_snp_queue_excp(vcpu, vcpu->arch.exception.nr);
-       if (WARN_ONCE(vcpu->arch.exception.nr != HV_VECTOR,
+       trace_kvm_inj_snp_queue_excp(vcpu, vcpu->arch.exception.vector);
+       if (WARN_ONCE(vcpu->arch.exception.vector != HV_VECTOR,
                      "restricted injection enabled, exception %u injection not supported\n",
-                     vcpu->arch.exception.nr))
+                     vcpu->arch.exception.vector))
                return true;
 
        /*

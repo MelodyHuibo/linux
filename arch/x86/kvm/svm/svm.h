@@ -656,6 +656,20 @@ void nested_sync_control_from_vmcb02(struct vcpu_svm *svm);
 void nested_vmcb02_compute_g_pat(struct vcpu_svm *svm);
 void svm_switch_vmcb(struct vcpu_svm *svm, struct kvm_vmcb_info *target_vmcb);
 
+static inline void svm_set_ghcb_sw_exit_info_1(struct kvm_vcpu *vcpu, u64 val)
+{
+	struct vcpu_svm *svm = to_svm(vcpu);
+
+	svm->ghcb_sw_exit_info_1 = val;
+}
+
+static inline void svm_set_ghcb_sw_exit_info_2(struct kvm_vcpu *vcpu, u64 val)
+{
+	struct vcpu_svm *svm = to_svm(vcpu);
+
+	svm->ghcb_sw_exit_info_2 = val;
+}
+
 extern struct kvm_x86_nested_ops svm_nested_ops;
 
 /* avic.c */
